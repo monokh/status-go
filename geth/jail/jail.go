@@ -137,79 +137,46 @@ func (j *Jail) initCell(cell *Cell) error {
 }
 
 // CreateAndInitCell creates and initializes a new Cell.
-func (j *Jail) createAndInitCell(chatID string, code ...string) (*Cell, error) {
+func (j *Jail) createAndInitCell(chatID string, code ...string) (*Cell, []otto.Value, error) {
 	cell, err := j.obtainCell(chatID, false)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := j.initCell(cell); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Run custom user code
+	var values []otto.Value
 	for _, js := range code {
-		_, err := cell.Run(js)
+		value, err := cell.Run(js)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+
+		values = append(values, value)
 	}
 
-	return cell, nil
+	return cell, values, nil
 }
 
-// CreateAndInitCell creates and initializes new Cell. Additionally,
-// it creates a `catalog` variable in the VM.
+// CreateAndInitCell creates and initializes new Cell.
 // It returns the response as a JSON string.
 func (j *Jail) CreateAndInitCell(chatID string, code ...string) string {
-	cell, err := j.createAndInitCell(chatID, code...)
+	_, value, err := j.createAndInitCell(chatID, code...)
 	if err != nil {
 		return newJailErrorResponse(err)
 	}
 
-	return j.makeCatalogVariable(cell)
+	return newJailResultResponse(value[0])
 }
 
 // Parse creates a new jail cell context, with the given chatID as identifier.
 // New context executes provided JavaScript code, right after the initialization.
 // DEPRECATED in favour of CreateAndInitCell.
 func (j *Jail) Parse(chatID, code string) string {
-	cell, err := j.cell(chatID)
-	if err != nil {
-		// cell does not exist, so create and init it
-		cell, err = j.createAndInitCell(chatID, code)
-	} else {
-		// cell already exists, so just reinit it
-		err = j.initCell(cell)
-	}
-
-	if err != nil {
-		return newJailErrorResponse(err)
-	}
-
-	if _, err = cell.Run(code); err != nil {
-		return newJailErrorResponse(err)
-	}
-
-	return j.makeCatalogVariable(cell)
-}
-
-// makeCatalogVariable provides `catalog` as a global variable.
-// TODO(divan): this can and should be implemented outside of jail,
-// on a clojure side. Moving this into separate method to nuke it later
-// easier.
-func (j *Jail) makeCatalogVariable(cell *Cell) string {
-	_, err := cell.Run(`var catalog = JSON.stringify(_status_catalog)`)
-	if err != nil {
-		return newJailErrorResponse(err)
-	}
-
-	value, err := cell.Get("catalog")
-	if err != nil {
-		return newJailErrorResponse(err)
-	}
-
-	return newJailResultResponse(value)
+	return j.CreateAndInitCell(chatID, code)
 }
 
 func (j *Jail) cell(chatID string) (*Cell, error) {

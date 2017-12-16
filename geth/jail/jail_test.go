@@ -105,19 +105,15 @@ func (s *JailTestSuite) TestMakeCatalogVariable() {
 	cell, err := s.Jail.obtainCell("cell1", false)
 	s.NoError(err)
 
-	// no `_status_catalog` variable
-	response := s.Jail.makeCatalogVariable(cell)
-	s.Equal(`{"error":"ReferenceError: '_status_catalog' is not defined"}`, response)
-
 	// with `_status_catalog` variable
 	_, err = cell.Run(`var _status_catalog = { test: true }`)
 	s.NoError(err)
-	response = s.Jail.makeCatalogVariable(cell)
+	response := s.Jail.CreateAndInitCell("cell1", "var catalog = JSON.stringify(_status_catalog); catalog;") // TODO: This should be the exact code from status-react
 	s.Equal(`{"result": {"test":true}}`, response)
 }
 
 func (s *JailTestSuite) TestCreateAndInitCell() {
-	cell, err := s.Jail.createAndInitCell(
+	cell, _, err := s.Jail.createAndInitCell(
 		"cell1",
 		`var testCreateAndInitCell1 = true`,
 		`var testCreateAndInitCell2 = true`,
@@ -135,18 +131,18 @@ func (s *JailTestSuite) TestCreateAndInitCell() {
 }
 
 func (s *JailTestSuite) TestPublicCreateAndInitCell() {
-	response := s.Jail.CreateAndInitCell("cell1", `var _status_catalog = { test: true }`)
+	response := s.Jail.CreateAndInitCell("cell1", `var _status_catalog = { test: true }; JSON.stringify(_status_catalog);`)
 	s.Equal(`{"result": {"test":true}}`, response)
 }
 
 func (s *JailTestSuite) TestPublicCreateAndInitCellConsecutive() {
-	response1 := s.Jail.CreateAndInitCell("cell1", `var _status_catalog = { test: true }`)
+	response1 := s.Jail.CreateAndInitCell("cell1", `var _status_catalog = { test: true }; JSON.stringify(_status_catalog);`)
 	s.Contains(response1, "test")
 	cell1, err := s.Jail.Cell("cell1")
 	s.NoError(err)
 
 	// Create it again
-	response2 := s.Jail.CreateAndInitCell("cell1", `var _status_catalog = { test: true, foo: 5 }`)
+	response2 := s.Jail.CreateAndInitCell("cell1", `var _status_catalog = { test: true, foo: 5 }; JSON.stringify(_status_catalog);`)
 	s.Contains(response2, "test", "foo")
 	cell2, err := s.Jail.Cell("cell1")
 	s.NoError(err)
