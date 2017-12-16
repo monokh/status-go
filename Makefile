@@ -63,6 +63,12 @@ statusgo-ios-simulator: xgo	##@cross-compile Build status-go for iOS Simulator
 	$(GOPATH)/bin/xgo --image farazdagi/xgo-ios-simulator --go=$(GO) -out statusgo --dest=$(GOBIN) --targets=ios-9.3/framework -v $(shell build/testnet-flags.sh) ./lib
 	@echo "iOS framework cross compilation done."
 
+statusgo-library: ##@cross-compile Build status-go as static library for current platform
+	@echo "Building static library..."
+	go build -buildmode=c-archive -o $(GOBIN)/libstatus.a ./lib
+	@echo "Static library built:"
+	@ls -la $(GOBIN)/libstatus.*
+
 xgo:
 	docker pull farazdagi/xgo
 	go get github.com/karalabe/xgo
@@ -118,7 +124,7 @@ test-e2e: ##@tests Run e2e tests
 	# e2e_test tag is required to include some files from ./lib without _test suffix
 	go test -timeout 40m -tags e2e_test ./lib -network=$(networkid)
 
-ci: lint mock-install mock test-unit test-e2e ##@tests Run all linters and tests at once
+ci: lint mock test-unit test-e2e ##@tests Run all linters and tests at once
 
 clean: ##@other Cleanup
 	rm -fr build/bin/*
